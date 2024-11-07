@@ -1,0 +1,115 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+library(terra)
+library(tmap)
+library(tmaptools)
+```
+
+```{r}
+# Set directory for folder
+pre_fire_dir <- here::here("data", "LC80340322016189-SC20170128091153")
+
+# Create a list of all images that have the extension .tif and contain the word band
+pre_fire_bands <- list.files(pre_fire_dir,
+                             pattern = glob2rx("*band*.tif$"),
+                             full.names = TRUE)
+# Create a raster stack
+pre_fire_rast <- rast(pre_fire_bands)
+
+# Read mask raster
+pre_mask <- rast(here::here("data", "LC80340322016189-SC20170128091153", "LC80340322016189LGN00_cfmask_crop.tif"))
+```
+
+```{r}
+# Set directory for folder
+post_fire_dir <- here::here("data", "LC80340322016205-SC20170127160728")
+
+# Create a list of all images that have the extension .tif and contain the word band
+post_fire_bands <- list.files(post_fire_dir,
+                             pattern = glob2rx("*band*.tif$"),
+                             full.names = TRUE)
+# Create a raster stack
+post_fire_rast <- rast(post_fire_bands)
+
+# Read mask raster
+post_mask <- rast(here::here("data", "LC80340322016189-SC20170128091153", "LC80340322016189LGN00_cfmask_crop.tif"))
+```
+
+```{r}
+nbr_fun <- function(nir, swir2){
+    (nir - swir2)/(nir + swir2)
+}
+```
+
+# 3. Your task
+Rename the bands of the pre_fire and post_fire rasters using names()
+```{r}
+bands <- c("Aerosol", "Blue", "Green", "Red", "NIR", "SWIR1", "SWIR2")
+
+names(pre_fire_rast) <- bands
+names(post_fire_rast) <- bands
+```
+
+Next, for each of the pre_fire and post_fire rasters…
+Mask out clouds and shadows with the pre_mask and post_mask rasters
+Hint: Set mask > 0 to NA
+```{r}
+pre_mask[pre_mask > 0] <- NA
+post_mask[post_mask > 0] <- NA
+
+pre_fire_rast <- mask(pre_fire_rast, mask = pre_mask)
+post_fire_rast <- mask(post_fire_rast, mask = post_mask)
+
+```
+
+Plot a true color composite using plotRGB()
+Map the red band to the red channel, green to green, and blue to blue
+Apply a linear stretch “lin” or histogram equalization “hist”
+```{r}
+plot(pre_fire_rast, colNA = "white")
+plot(post_fire_rast, colNA = "white")
+
+```
+
+True color
+```{r}
+plotRGB(pre_fire_rast, r = 4, g = 3, b = 2, stretch = "lin", colNA = "black")
+```
+```{r}
+plotRGB(post_fire_rast, r = 4, g = 3, b = 2, stretch = "lin", colNA = "black")
+```
+False color
+Plot two false color composite using plotRGB()
+Map the SWIR2 band to the red channel, NIR to green, and green to blue
+Apply a linear stretch “lin” or histogram equalization “hist”
+```{r}
+plotRGB(pre_fire_rast, r = 7, g = 5, b = 3, stretch = "lin", colNA = "black")
+plotRGB(post_fire_rast, r = 7, g = 5, b = 3, stretch = "lin", colNA = "black")
+```
+
+Calculate the normalized burn ratio (NBR)
+Hint: Use lapp() like you previously did for NDVI and NDWI in Week 4
+```{r}
+pre_nbr <- terra::lapp(pre_fire_rast[[c(5, 7)]], 
+            fun = nbr_fun)
+
+post_nbr <- terra::lapp(post_fire_rast[[c(5, 7)]], 
+            fun = nbr_fun)
+
+diff_nbr = pre_nbr - post_nbr
+plot(diff_nbr)
+```
+
+Find the difference NBR, where 
+```{r}
+diff <- pre_fire_rast - post_fire_rast
+
+```
+
